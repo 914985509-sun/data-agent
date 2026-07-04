@@ -1,0 +1,3546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data可视化智能体 | Qwen3.7-Plus</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+/* ======================== 基础重置 ======================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --primary-light: #dbeafe;
+  --accent: #7c3aed;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --up: #dc2626;       /* 涨：红色（中国股市惯例） */
+  --down: #16a34a;     /* 跌：绿色 */
+  --bg: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --border-dark: #cbd5e1;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "SF Mono", "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ======================== 布局 ======================== */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---- 侧边栏 ---- */
+.sidebar {
+  width: 240px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.sidebar-header .logo-icon,
+.sidebar-header .logo-img {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+  object-fit: cover;
+}
+
+.sidebar-header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.sidebar-header .subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-top: 8px;
+}
+
+.model-badge::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.nav {
+  flex: 1;
+  padding: 12px 10px;
+  overflow-y: auto;
+}
+
+.nav-section {
+  margin-bottom: 8px;
+}
+
+.nav-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 8px 12px 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.nav-item .nav-icon {
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.nav-item .nav-badge {
+  margin-left: auto;
+  font-size: 10px;
+  background: var(--success);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sidebar-footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* ---- 主内容区 ---- */
+.main {
+  flex: 1;
+  margin-left: 240px;
+  padding: 0;
+}
+
+.topbar {
+  height: 56px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg);
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.status-pill .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+}
+
+.content {
+  padding: 28px;
+  max-width: 1200px;
+}
+
+/* ======================== 页面切换 ======================== */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ======================== 卡片 ======================== */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-header h3 .icon {
+  font-size: 16px;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* ======================== 配置面板 ======================== */
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.form-group label .hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.form-control.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+select.form-control {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 34px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group { flex: 1; }
+
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-group input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.slider-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  min-width: 36px;
+  text-align: right;
+  font-family: var(--mono);
+}
+
+/* ======================== 按钮 ======================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  font-family: var(--font);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow);
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-dark);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+
+.btn-success:hover {
+  background: #15803d;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 14px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ======================== 上传区 ======================== */
+.upload-zone {
+  border: 2px dashed var(--border-dark);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-zone input[type="file"] {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.upload-zone .upload-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.upload-zone h4 {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.upload-zone p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.file-list {
+  margin-top: 16px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  transition: all 0.15s;
+}
+
+.file-item:hover {
+  border-color: var(--border-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.file-item .file-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.file-item .file-info {
+  flex: 1;
+}
+
+.file-item .file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.file-item .file-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.file-item .file-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.file-status.pending { background: #fef3c7; color: #92400e; }
+.file-status.processing { background: var(--primary-light); color: var(--primary-dark); }
+.file-status.done { background: #dcfce7; color: #166534; }
+.file-status.error { background: #fee2e2; color: #991b1b; }
+
+/* ======================== 流水线可视化 ======================== */
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 8px 0;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+}
+
+.pipeline-step-num {
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pipeline-step-num .circle {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg);
+  border: 2px solid var(--border-dark);
+  color: var(--text-muted);
+  transition: all 0.3s;
+  z-index: 1;
+}
+
+.pipeline-step.active .circle {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.15);
+  animation: pulse 1.5s infinite;
+}
+
+.pipeline-step.done .circle {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.pipeline-step.error .circle {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.pipeline-step-num .line {
+  width: 2px;
+  flex: 1;
+  background: var(--border);
+  margin-top: 2px;
+}
+
+.pipeline-step:last-child .line { display: none; }
+.pipeline-step.done .line { background: var(--success); }
+
+.pipeline-step-body {
+  flex: 1;
+  padding: 4px 0 20px 16px;
+}
+
+.pipeline-step-body .step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pipeline-step-body .step-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.pipeline-step-body .step-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.step-stat {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+
+.step-stat strong {
+  color: var(--text);
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-bar .fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.pipeline-step.done .progress-bar .fill { background: var(--success); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(37,99,235,0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(37,99,235,0.08); }
+}
+
+/* ======================== 结果展示 ======================== */
+.result-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 0;
+  overflow-x: auto;
+}
+
+.result-tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.result-tab:hover {
+  color: var(--text);
+}
+
+.result-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.result-tab .tab-badge {
+  font-size: 10px;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.result-panel {
+  display: none;
+  padding: 20px;
+}
+
+.result-panel.active { display: block; }
+
+/* ---- 数据表格 ---- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.data-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.data-table .num {
+  font-family: var(--mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table .up { color: var(--up); font-weight: 600; }
+.data-table .down { color: var(--down); font-weight: 600; }
+.data-table .null-val { color: var(--text-muted); font-style: italic; }
+
+/* ---- 指标卡片网格 ---- */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  transition: all 0.15s;
+}
+
+.metric-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.metric-card .value {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.metric-card .unit {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+.metric-card .change {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.metric-card .change.up { color: var(--up); }
+.metric-card .change.down { color: var(--down); }
+
+/* ---- 信息行 ---- */
+.info-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.info-item {
+  display: flex;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  padding-right: 16px;
+}
+
+.info-item .info-label {
+  width: 120px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.info-item .info-value {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ---- JSON 查看器 ---- */
+.json-viewer {
+  background: #1e293b;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.json-viewer .key { color: #93c5fd; }
+.json-viewer .string { color: #86efac; }
+.json-viewer .number { color: #fbbf24; }
+.json-viewer .boolean { color: #f87171; }
+.json-viewer .null { color: #94a3b8; font-style: italic; }
+.json-viewer .bracket { color: #cbd5e1; }
+
+/* ======================== 架构图 ======================== */
+.arch-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.arch-layer {
+  width: 100%;
+  max-width: 700px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.arch-layer:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+  transform: translateX(4px);
+}
+
+.arch-layer-num {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.arch-layer-content {
+  flex: 1;
+}
+
+.arch-layer-content .layer-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.arch-layer-content .layer-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.arch-layer-content .layer-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.layer-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.arch-arrow {
+  width: 2px;
+  height: 24px;
+  background: var(--border-dark);
+  position: relative;
+}
+
+.arch-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--border-dark);
+}
+
+/* ---- Schema 展示 ---- */
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.schema-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: all 0.15s;
+}
+
+.schema-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.schema-card .schema-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.schema-card .schema-icon {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.schema-card .schema-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.schema-card .schema-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.schema-card .field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schema-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0;
+}
+
+.schema-field .fname {
+  font-family: var(--mono);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 11px;
+  min-width: 120px;
+}
+
+.schema-field .ftype {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.schema-field .fdesc {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+/* ======================== 提示框 ======================== */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.alert-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.alert-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.alert .alert-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ======================== 统计行 ======================== */
+.stats-row {
+  display: flex;
+  gap: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f0f4ff, #faf5ff);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+
+.stat-block {
+  text-align: center;
+}
+
+.stat-block .stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--primary);
+}
+
+.stat-block .stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  background: var(--border);
+}
+
+/* ======================== 工具栏 ======================== */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar .spacer { flex: 1; }
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  font-size: 12px;
+  width: 160px;
+  font-family: var(--font);
+  background: transparent;
+}
+
+/* ======================== 代码块 ======================== */
+.code-block {
+  background: #1e293b;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: auto;
+  color: #e2e8f0;
+  position: relative;
+}
+
+.code-block .copy-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #cbd5e1;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+.code-block .copy-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ======================== 响应式 ======================== */
+@media (max-width: 900px) {
+  .sidebar { width: 60px; }
+  .sidebar-header h1, .sidebar-header .subtitle, .nav-item span:not(.nav-icon), .nav-section-title, .sidebar-footer { display: none; }
+  .main { margin-left: 60px; }
+  .config-grid, .info-list { grid-template-columns: 1fr; }
+}
+
+/* ======================== 杂项 ======================== */
+.text-up { color: var(--up); }
+.text-down { color: var(--down); }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 11px; }
+.font-mono { font-family: var(--mono); }
+.font-bold { font-weight: 700; }
+.mb-0 { margin-bottom: 0; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mt-3 { margin-top: 12px; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.flex-wrap { flex-wrap: wrap; }
+
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast 通知 */
+.toast-container {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: var(--text);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+.toast.warning { background: var(--warning); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ======================== 侧边栏 ======================== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <img src="logo.png" alt="Logo" class="logo-img">
+        <div>
+          <h1>Data可视化智能体</h1>
+          <div class="subtitle">Annual Report Extractor</div>
+        </div>
+      </div>
+      <span class="model-badge">Qwen3.7-Plus</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-section-title">工作台</div>
+        <div class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">🏠</span><span>仪表盘</span>
+        </div>
+        <div class="nav-item" data-page="config">
+          <span class="nav-icon">⚙️</span><span>模型配置</span>
+        </div>
+        <div class="nav-item" data-page="upload">
+          <span class="nav-icon">📤</span><span>上传年报</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">提取</div>
+        <div class="nav-item" data-page="pipeline">
+          <span class="nav-icon">🔄</span><span>提取流水线</span>
+        </div>
+        <div class="nav-item" data-page="results">
+          <span class="nav-icon">📋</span><span>结果查看</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      Powered by <a href="https://www.aliyun.com/product/tongyi" target="_blank">阿里云百炼</a><br>
+      v1.0 · 2026-07-04
+    </div>
+  </aside>
+
+  <!-- ======================== 主内容 ======================== -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="pageTitle">仪表盘</div>
+      <div class="topbar-actions">
+        <div class="status-pill">
+          <span class="dot"></span>
+          <span id="apiStatus">API 未配置</span>
+        </div>
+        <button class="btn btn-primary" onclick="loadDemoData()">
+          🎬 加载演示数据
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- ======================== 仪表盘 ======================== -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-row">
+          <div class="stat-block">
+            <div class="stat-value" id="statFiles">0</div>
+            <div class="stat-label">已处理文件</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-block">
+            <div class="stat-value" id="statFields">0</div>
+            <div class="stat-label">提取字段数</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-block">
+            <div class="stat-value" id="statTime">—</div>
+            <div class="stat-label">总耗时</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-block">
+            <div class="stat-value" id="statCost">—</div>
+            <div class="stat-label">预估费用</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🚀</span> 快速开始</h3>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              <span class="alert-icon">💡</span>
+              <div>
+                <strong>三步完成年报提取：</strong>
+                <br>① 在「模型配置」填写阿里云百炼 API Key → ② 在「上传年报」拖入 PDF → ③ 在「提取流水线」启动提取
+                <br>没有 API Key？点击右上角「加载演示数据」预览完整效果。
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px;">
+              <div style="text-align:center;padding:20px;background:var(--bg);border-radius:var(--radius-sm);cursor:pointer;" onclick="switchPage('config')">
+                <div style="font-size:28px;margin-bottom:8px;">⚙️</div>
+                <div style="font-size:13px;font-weight:600;">配置 API Key</div>
+                <div class="text-xs text-muted mt-3">连接 Qwen3.7-Plus</div>
+              </div>
+              <div style="text-align:center;padding:20px;background:var(--bg);border-radius:var(--radius-sm);cursor:pointer;" onclick="switchPage('upload')">
+                <div style="font-size:28px;margin-bottom:8px;">📤</div>
+                <div style="font-size:13px;font-weight:600;">上传 PDF 年报</div>
+                <div class="text-xs text-muted mt-3">支持批量拖拽</div>
+              </div>
+              <div style="text-align:center;padding:20px;background:var(--bg);border-radius:var(--radius-sm);cursor:pointer;" onclick="switchPage('pipeline')">
+                <div style="font-size:28px;margin-bottom:8px;">🔄</div>
+                <div style="font-size:13px;font-weight:600;">启动提取</div>
+                <div class="text-xs text-muted mt-3">六层流水线自动处理</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">📦</span> 提取数据概览</h3>
+            <button class="btn btn-ghost btn-sm" onclick="switchPage('results')">查看详情 →</button>
+          </div>
+          <div class="card-body" id="dashboardPreview">
+            <div style="text-align:center;padding:40px 0;color:var(--text-muted);">
+              <div style="font-size:36px;margin-bottom:8px;">📭</div>
+              <div style="font-size:13px;">暂无数据，点击右上角「加载演示数据」预览效果</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 模型配置 ======================== -->
+      <div class="page" id="page-config">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🔑</span> API 凭证</h3>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              <span class="alert-icon">ℹ️</span>
+              <div>
+                API Key 从 <strong>阿里云百炼平台</strong>获取：
+                <a href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" style="color:var(--primary);">bailian.console.aliyun.com</a>
+                <br>新用户有免费额度，可处理约 300 份年报。
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>DASHSCOPE_API_KEY <span class="hint">（存储在本地，不会上传）</span></label>
+              <input type="password" class="form-control mono" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="">
+            </div>
+
+            <div class="form-group">
+              <label>API Base URL</label>
+              <input type="text" class="form-control mono" id="baseUrlInput" value="https://dashscope.aliyuncs.com/compatible-mode/v1" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🤖</span> 模型参数</h3>
+          </div>
+          <div class="card-body">
+            <div class="config-grid">
+              <div class="form-group">
+                <label>主模型 <span class="hint">（提取用）</span></label>
+                <select class="form-control" id="modelSelect">
+                  <option value="qwen-plus" selected>qwen-plus（别名，自动指向最新 Plus 系列）</option>
+                  <option value="qwen3.7-plus">qwen3.7-plus（指定版本）</option>
+                  <option value="qwen-max">qwen-max（最强推理，成本较高）</option>
+                  <option value="qwen-turbo">qwen-turbo（快速，精度略低）</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>修复模型 <span class="hint">（JSON 格式修复用）</span></label>
+                <select class="form-control" id="repairModelSelect">
+                  <option value="qwen-flash" selected>qwen-flash（轻量快速）</option>
+                  <option value="qwen-turbo">qwen-turbo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="config-grid">
+              <div class="form-group">
+                <label>Temperature <span class="hint">（低温度 = 提取更稳定）</span></label>
+                <div class="slider-group">
+                  <input type="range" min="0" max="1" step="0.1" value="0.1" id="tempSlider" oninput="document.getElementById('tempValue').textContent=this.value">
+                  <span class="slider-value" id="tempValue">0.1</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>最大重试次数</label>
+                <input type="number" class="form-control" id="retryInput" value="3" min="1" max="10">
+              </div>
+            </div>
+
+            <div class="config-grid">
+              <div class="form-group">
+                <label>分块大小 <span class="hint">（字符数）</span></label>
+                <input type="number" class="form-control" id="chunkSizeInput" value="12000" min="2000" max="50000" step="1000">
+              </div>
+              <div class="form-group">
+                <label>分块重叠 <span class="hint">（字符数）</span></label>
+                <input type="number" class="form-control" id="overlapInput" value="500" min="0" max="2000" step="100">
+              </div>
+            </div>
+
+            <div class="config-grid">
+              <div class="form-group">
+                <label>请求超时（秒）</label>
+                <input type="number" class="form-control" id="timeoutInput" value="120" min="30" max="600">
+              </div>
+              <div class="form-group">
+                <label>导出格式</label>
+                <div style="display:flex;gap:12px;padding-top:8px;">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:500;">
+                    <input type="checkbox" id="fmtExcel" checked> Excel
+                  </label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:500;">
+                    <input type="checkbox" id="fmtJson" checked> JSON
+                  </label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;font-weight:500;">
+                    <input type="checkbox" id="fmtCsv"> CSV
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:8px;">
+              <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+              <button class="btn btn-secondary" id="testBtn" onclick="testConnection()">🔌 测试连接</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 上传年报 ======================== -->
+      <div class="page" id="page-upload">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">📤</span> 上传年报 PDF</h3>
+          </div>
+          <div class="card-body">
+            <div class="upload-zone" id="uploadZone">
+              <div class="upload-icon">📄</div>
+              <h4>拖拽年报 PDF 到此处，或点击选择文件</h4>
+              <p>支持 PDF 格式 · 单文件最大 200MB · 可同时选择多个文件</p>
+              <input type="file" id="fileInput" accept=".pdf,.PDF,application/pdf" multiple>
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div style="display:none;gap:10px;margin-top:16px;" id="uploadActions">
+              <button class="btn btn-primary btn-lg" onclick="startExtraction()">
+                🚀 开始提取
+              </button>
+              <button class="btn btn-secondary" onclick="clearFiles()">清空列表</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">📋</span> 支持的年报章节</h3>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span>
+                <span>公司简介和主要财务指标</span>
+                <span class="text-muted text-xs" style="margin-left:auto;">→ company_basic</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span>
+                <span>管理层讨论与分析</span>
+                <span class="text-muted text-xs" style="margin-left:auto;">→ business_analysis</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span>
+                <span>重要事项</span>
+                <span class="text-muted text-xs" style="margin-left:auto;">→ important_matters</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span>
+                <span>股本变动及股东情况</span>
+                <span class="text-muted text-xs" style="margin-left:auto;">→ shareholders</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--success);"></span>
+                <span>财务报告</span>
+                <span class="text-muted text-xs" style="margin-left:auto;">→ financial_statements</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);"></span>
+                <span class="text-muted">其他章节（跳过提取）</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 提取流水线 ======================== -->
+      <div class="page" id="page-pipeline">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🔄</span> 提取流水线</h3>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-success" id="runBtn" onclick="runPipeline()">▶ 启动提取</button>
+              <button class="btn btn-secondary" onclick="resetPipeline()">↻ 重置</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-warning" id="pipelineAlert">
+              <span class="alert-icon">⚠️</span>
+              <div>请先在「上传年报」页面添加 PDF 文件，或在「模型配置」页面配置 API Key。也可点击右上角「加载演示数据」体验完整流程。</div>
+            </div>
+
+            <div class="pipeline" id="pipelineContainer">
+              <div class="pipeline-step" id="step1">
+                <div class="pipeline-step-num">
+                  <div class="circle">1</div>
+                  <div class="line"></div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">📄 PDF 解析</div>
+                  <div class="step-desc">使用 pdfplumber 提取文本和表格，按页记录内容</div>
+                  <div class="step-stats" id="step1Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+
+              <div class="pipeline-step" id="step2">
+                <div class="pipeline-step-num">
+                  <div class="circle">2</div>
+                  <div class="line"></div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">✂️ 章节分块</div>
+                  <div class="step-desc">按年报标准章节关键词切分，超长章节二次分块（保留上下文重叠）</div>
+                  <div class="step-stats" id="step2Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+
+              <div class="pipeline-step" id="step3">
+                <div class="pipeline-step-num">
+                  <div class="circle">3</div>
+                  <div class="line"></div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">🤖 Qwen3.7-Plus 结构化提取</div>
+                  <div class="step-desc">逐块调用 Qwen API，JSON Mode 保证输出可解析，低温度保证稳定性</div>
+                  <div class="step-stats" id="step3Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+
+              <div class="pipeline-step" id="step4">
+                <div class="pipeline-step-num">
+                  <div class="circle">4</div>
+                  <div class="line"></div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">✅ JSON 校验与修复</div>
+                  <div class="step-desc">字段完整性校验 + 类型检查，失败时调用 qwen-flash 自动修复</div>
+                  <div class="step-stats" id="step4Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+
+              <div class="pipeline-step" id="step5">
+                <div class="pipeline-step-num">
+                  <div class="circle">5</div>
+                  <div class="line"></div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">🔗 数据合并</div>
+                  <div class="step-desc">同章节多块结果合并：null 字段填充、数组字段累加</div>
+                  <div class="step-stats" id="step5Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+
+              <div class="pipeline-step" id="step6">
+                <div class="pipeline-step-num">
+                  <div class="circle">6</div>
+                </div>
+                <div class="pipeline-step-body">
+                  <div class="step-title">📥 多格式导出</div>
+                  <div class="step-desc">导出为 Excel（多 Sheet）/ JSON / CSV</div>
+                  <div class="step-stats" id="step6Stats"></div>
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 结果查看 ======================== -->
+      <div class="page" id="page-results">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">📋</span> 提取结果 — <span id="resultCompanyName">未加载</span></h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="resultFileSelect" style="display:none;padding:6px 10px;border:1px solid var(--border-dark);border-radius:6px;font-size:12px;font-family:var(--font);" onchange="switchResultFile(this.value)"></select>
+              <button class="btn btn-secondary" onclick="exportJSON()">⬇ JSON</button>
+              <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+              <button class="btn btn-primary" onclick="copyJSON()">📋 复制 JSON</button>
+            </div>
+          </div>
+
+          <div class="result-tabs">
+            <div class="result-tab active" data-tab="basic"><span>🏢 公司基本信息</span><span class="tab-badge">20</span></div>
+            <div class="result-tab" data-tab="business"><span>📈 业务分析</span></div>
+            <div class="result-tab" data-tab="shareholders"><span>👥 股东情况</span></div>
+            <div class="result-tab" data-tab="financial"><span>💰 财务报表</span></div>
+            <div class="result-tab" data-tab="matters"><span>⚠️ 重要事项</span></div>
+            <div class="result-tab" data-tab="json"><span>{ } 原始 JSON</span></div>
+          </div>
+
+          <div class="alert alert-warning" id="noApiKeyBanner" style="display:none;margin:12px 20px 0;">
+            <span class="alert-icon">⚠️</span>
+            <div>
+              <strong>未配置 API Key</strong> — 仅解析了 PDF 文本，未调用 Qwen 提取结构化数据。
+              <a href="#" onclick="switchPage('config');return false;" style="color:var(--primary);font-weight:600;">前往配置 →</a>
+            </div>
+          </div>
+
+          <!-- 公司基本信息 -->
+          <div class="result-panel active" id="panel-basic">
+            <div class="metric-grid" id="metricGrid"></div>
+            <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary);">公司详情</h4>
+            <div class="info-list" id="infoList"></div>
+          </div>
+
+          <!-- 业务分析 -->
+          <div class="result-panel" id="panel-business">
+            <div id="businessContent"></div>
+          </div>
+
+          <!-- 股东情况 -->
+          <div class="result-panel" id="panel-shareholders">
+            <div id="shareholdersContent"></div>
+          </div>
+
+          <!-- 财务报表 -->
+          <div class="result-panel" id="panel-financial">
+            <div id="financialContent"></div>
+          </div>
+
+          <!-- 重要事项 -->
+          <div class="result-panel" id="panel-matters">
+            <div id="mattersContent"></div>
+          </div>
+
+          <!-- 原始 JSON -->
+          <div class="result-panel" id="panel-json">
+            <div class="json-viewer" id="jsonViewer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== Schema 定义 ======================== -->
+      <div class="page" id="page-schema">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">📐</span> 提取 Schema 定义</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-sm text-muted mb-3">以下 5 类 Schema 定义了从年报中提取的结构化数据格式。每个字段都有明确的类型和描述，Qwen3.7-Plus 会严格按照 Schema 输出 JSON。</p>
+            <div class="schema-grid" id="schemaGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 架构设计 ======================== -->
+      <div class="page" id="page-architecture">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🏗️</span> 六层流水线架构</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-sm text-muted mb-3">年报 PDF 从输入到结构化数据输出，经过六层处理。每层职责明确，可独立测试和替换。</p>
+            <div class="arch-flow" id="archFlow"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">🧠</span> Qwen3.7-Plus 三大核心能力</h3>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+              <div style="padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+                <div style="font-size:24px;margin-bottom:8px;">📖</div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:4px;">1M 上下文</div>
+                <div class="text-xs text-muted">200页年报全文可直接送入模型。分块是为了提高精度而非绕过长度限制。</div>
+              </div>
+              <div style="padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+                <div style="font-size:24px;margin-bottom:8px;">📦</div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:4px;">JSON Mode</div>
+                <div class="text-xs text-muted">response_format={"type":"json_object"} 直接返回可解析 JSON，告别正则提取。</div>
+              </div>
+              <div style="padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+                <div style="font-size:24px;margin-bottom:8px;">📊</div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:4px;">多模态理解</div>
+                <div class="text-xs text-muted">年报中的财务表格以 Markdown 格式传入，模型能正确理解行列关系。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">💰</span> 成本估算</h3>
+          </div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>项目</th><th>数值</th><th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>单份年报页数</td><td class="num">~200 页</td><td>典型 A 股年报</td></tr>
+                <tr><td>分块数</td><td class="num">~8 块</td><td>5 个有 Schema 的章节</td></tr>
+                <tr><td>总输入 Token</td><td class="num">~120K</td><td>含 System Prompt + 年报文本</td></tr>
+                <tr><td>总输出 Token</td><td class="num">~8K</td><td>结构化 JSON</td></tr>
+                <tr><td>qwen-plus 单价</td><td class="num">¥0.8/M 输入 + ¥2/M 输出</td><td>百炼平台标价</td></tr>
+                <tr style="font-weight:700;"><td>单份年报费用</td><td class="num text-up">≈ ¥0.42</td><td>新用户免费额度可处理 ~300 份</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================== 后端代码 ======================== -->
+      <div class="page" id="page-code">
+        <div class="card">
+          <div class="card-header">
+            <h3><span class="icon">💻</span> Python 后端代码</h3>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              <span class="alert-icon">💡</span>
+              <div>
+                本智能体的后端使用 Python 实现，完整源码位于项目目录 <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;">annual_report_agent/</code>。
+                <br>以下展示核心模块代码，部署时需要安装依赖：<code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;">pip install -r requirements.txt</code>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;" id="codeTabs">
+              <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="showCode('config')">config.py</button>
+              <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="showCode('schema')">schema.py</button>
+              <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="showCode('extractor')">extractor.py</button>
+              <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="showCode('agent')">agent.py</button>
+              <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="showCode('main')">main.py</button>
+            </div>
+
+            <div class="code-block" id="codeBlock">
+              <button class="copy-btn" onclick="copyCode()">复制</button>
+              <pre id="codeContent" style="margin:0;white-space:pre-wrap;word-break:break-all;"></pre>
+            </div>
+
+            <div style="margin-top:16px;">
+              <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">🚀 运行方式</h4>
+              <div class="code-block">
+                <pre style="margin:0;white-space:pre-wrap;">
+# 1. 安装依赖
+pip install pdfplumber openpyxl openai jsonschema
+
+# 2. 配置 API Key
+export DASHSCOPE_API_KEY="sk-xxxxxxxxxxxx"
+
+# 3. 提取年报
+python main.py --pdf 贵州茅台2024年报.pdf
+
+# 4. 批量提取
+python main.py --pdf *.pdf --format excel json
+
+# 5. 指定模型
+python main.py --pdf report.pdf --model qwen3.7-plus --verbose</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ======================== 全局状态 ========================
+let appState = {
+  config: {
+    apiKey: '',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus',
+    repairModel: 'qwen-flash',
+    temperature: 0.1,
+    maxRetries: 3,
+    chunkSize: 12000,
+    overlap: 500,
+    timeout: 120,
+    formats: ['excel', 'json']
+  },
+  files: [],
+  resultsMap: {},       // { fileName: { company_name, data, stats } }
+  activeResultKey: null, // 当前查看的文件名
+  extractedData: null,  // 兼容旧逻辑 — demo data
+  pipelineRunning: false
+};
+
+// ======================== pdf.js 初始化 ========================
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ======================== 演示数据（贵州茅台 2024 年报） ========================
+const demoData = {
+  company_basic: {
+    company_name: "贵州茅台酒股份有限公司",
+    stock_code: "600519",
+    stock_abbreviation: "贵州茅台",
+    exchange: "上海证券交易所",
+    industry: "酒、饮料和精制茶制造业",
+    reporting_period: "2024年度",
+    legal_representative: "张德芹",
+    board_secretary: "蒋焰",
+    registered_capital: 1256197800,
+    revenue: 174126465200.00,
+    revenue_yoy: 15.71,
+    net_profit: 86227742800.00,
+    net_profit_yoy: 15.38,
+    total_assets: 255032547500.00,
+    net_assets: 232321835200.00,
+    operating_cash_flow: 93181382800.00,
+    basic_eps: 68.62,
+    diluted_eps: 68.62,
+    roe: 37.24,
+    total_shares: 1256197800
+  },
+  business_analysis: {
+    main_business: "茅台酒及系列酒的生产与销售",
+    business_segments: [
+      { segment_name: "茅台酒", segment_type: "产品", revenue: 145927958000, revenue_proportion: 83.82, gross_margin: 92.05, gross_margin_yoy: 0.10 },
+      { segment_name: "系列酒", segment_type: "产品", revenue: 24683784000, revenue_proportion: 14.18, gross_margin: 79.20, gross_margin_yoy: 2.31 },
+      { segment_name: "直销渠道", segment_type: "渠道", revenue: 78000000000, revenue_proportion: 44.80, gross_margin: 95.0, gross_margin_yoy: 0.5 },
+      { segment_name: "批发代理渠道", segment_type: "渠道", revenue: 96100000000, revenue_proportion: 55.20, gross_margin: 89.5, gross_margin_yoy: -0.3 }
+    ],
+    rd_expense: 265300000,
+    rd_proportion: 0.15,
+    rd_personnel: 821,
+    rd_personnel_ratio: 6.53,
+    total_employees: 12577,
+    employee_breakdown: {
+      production: 7892,
+      sales: 1203,
+      technical: 821,
+      financial: 456,
+      administrative: 2205
+    }
+  },
+  important_matters: {
+    profit_distribution: "以总股本1,256,197,800股为基数，向全体股东每10股派发现金红利308.76元（含税），共计派发387.86亿元。",
+    risk_factors: [
+      { risk_category: "市场风险", risk_description: "白酒行业竞争加剧，消费者偏好变化可能影响产品销售。" },
+      { risk_category: "政策风险", risk_description: "国家对酒类行业的税收政策、广告宣传等监管政策变化。" },
+      { risk_category: "原材料风险", risk_description: "高粱、小麦等原材料价格波动对生产成本的影响。" },
+      { risk_category: "品牌风险", risk_description: "品牌形象维护和知识产权保护面临挑战。" }
+    ],
+    major_events: [
+      { event_type: "重大投资", event_description: "报告期内推进3万吨酱香酒技改工程项目，累计投入52亿元。" },
+      { event_type: "股权变动", event_description: "控股股东中国贵州茅台酒厂（集团）有限责任公司持股比例54.00%。" },
+      { event_type: "分红实施", event_description: "2023年度分红方案已实施完毕，每10股派发现金红利259.11元。" }
+    ]
+  },
+  shareholders: {
+    top_shareholders: [
+      { rank: 1, shareholder_name: "中国贵州茅台酒厂（集团）有限责任公司", shares: 679262056, proportion: 54.07, share_nature: "流通股" },
+      { rank: 2, shareholder_name: "香港中央结算有限公司", shares: 102678934, proportion: 8.17, share_nature: "流通股" },
+      { rank: 3, shareholder_name: "贵州省国有资本运营有限责任公司", shares: 56999200, proportion: 4.54, share_nature: "流通股" },
+      { rank: 4, shareholder_name: "贵州茅台酒厂集团技术开发公司", shares: 27500000, proportion: 2.19, share_nature: "流通股" },
+      { rank: 5, shareholder_name: "中央汇金资产管理有限责任公司", shares: 18873000, proportion: 1.50, share_nature: "流通股" },
+      { rank: 6, shareholder_name: "中国证券金融股份有限公司", shares: 17456000, proportion: 1.39, share_nature: "流通股" },
+      { rank: 7, shareholder_name: "易方达蓝筹精选混合型证券投资基金", shares: 12890000, proportion: 1.03, share_nature: "流通股" },
+      { rank: 8, shareholder_name: "招商中证白酒指数分级证券投资基金", shares: 11200000, proportion: 0.89, share_nature: "流通股" },
+      { rank: 9, shareholder_name: "全国社保基金一一五组合", shares: 9800000, proportion: 0.78, share_nature: "流通股" },
+      { rank: 10, shareholder_name: "中国银行股份有限公司-易方达消费行业股票", shares: 8500000, proportion: 0.68, share_nature: "流通股" }
+    ],
+    controlling_shareholder: "中国贵州茅台酒厂（集团）有限责任公司",
+    actual_controller: "贵州省国有资产监督管理委员会"
+  },
+  financial_statements: {
+    balance_sheet: {
+      monetary_funds: 178231000000,
+      accounts_receivable: 95000000,
+      inventory: 53400000000,
+      fixed_assets: 18500000000,
+      goodwill: 0,
+      short_term_loans: 0,
+      long_term_loans: 100000000,
+      total_liabilities: 22710712300,
+      asset_liability_ratio: 8.91
+    },
+    income_statement: {
+      operating_cost: 13800000000,
+      selling_expense: 5400000000,
+      admin_expense: 6800000000,
+      financial_expense: -680000000,
+      operating_profit: 112000000000,
+      total_profit: 112000000000,
+      income_tax: 25800000000,
+      net_profit: 86227742800
+    },
+    cash_flow_statement: {
+      operating_cf_inflow: 185000000000,
+      operating_cf_outflow: 91800000000,
+      investing_cf_net: -5200000000,
+      financing_cf_net: -38800000000,
+      cash_equivalent_increase: 48200000000
+    }
+  }
+};
+
+// ======================== Schema 定义（从 schema.py 映射） ========================
+const schemas = [
+  {
+    name: "company_basic", desc: "公司简介和主要财务指标", icon: "🏢", color: "#2563eb",
+    fields: [
+      { name: "company_name", type: "string", desc: "公司全称" },
+      { name: "stock_code", type: "string", desc: "股票代码, 如 600519" },
+      { name: "stock_abbreviation", type: "string", desc: "股票简称" },
+      { name: "exchange", type: "string", desc: "上市交易所" },
+      { name: "industry", type: "string", desc: "所属行业" },
+      { name: "reporting_period", type: "string", desc: "报告期" },
+      { name: "revenue", type: "number", desc: "营业收入 (元)" },
+      { name: "revenue_yoy", type: "number", desc: "营收同比 (%)" },
+      { name: "net_profit", type: "number", desc: "归母净利润 (元)" },
+      { name: "net_profit_yoy", type: "number", desc: "净利润同比 (%)" },
+      { name: "total_assets", type: "number", desc: "总资产 (元)" },
+      { name: "roe", type: "number", desc: "净资产收益率 (%)" },
+      { name: "basic_eps", type: "number", desc: "基本每股收益" },
+      { name: "total_shares", type: "number", desc: "总股本 (股)" }
+    ]
+  },
+  {
+    name: "business_analysis", desc: "管理层讨论与分析", icon: "📈", color: "#7c3aed",
+    fields: [
+      { name: "main_business", type: "string", desc: "主营业务描述" },
+      { name: "business_segments", type: "array", desc: "分行业/产品经营情况" },
+      { name: "rd_expense", type: "number", desc: "研发费用 (元)" },
+      { name: "rd_proportion", type: "number", desc: "研发投入占营收比 (%)" },
+      { name: "rd_personnel", type: "integer", desc: "研发人员数量 (人)" },
+      { name: "total_employees", type: "integer", desc: "员工总数 (人)" },
+      { name: "employee_breakdown", type: "object", desc: "员工构成" }
+    ]
+  },
+  {
+    name: "shareholders", desc: "股本变动及股东情况", icon: "👥", color: "#059669",
+    fields: [
+      { name: "top_shareholders", type: "array", desc: "前十大股东" },
+      { name: "controlling_shareholder", type: "string", desc: "控股股东名称" },
+      { name: "actual_controller", type: "string", desc: "实际控制人名称" }
+    ]
+  },
+  {
+    name: "financial_statements", desc: "财务报告关键数据", icon: "💰", color: "#d97706",
+    fields: [
+      { name: "balance_sheet", type: "object", desc: "资产负债表关键科目" },
+      { name: "income_statement", type: "object", desc: "利润表关键科目" },
+      { name: "cash_flow_statement", type: "object", desc: "现金流量表关键科目" }
+    ]
+  },
+  {
+    name: "important_matters", desc: "重要事项", icon: "⚠️", color: "#dc2626",
+    fields: [
+      { name: "profit_distribution", type: "string", desc: "利润分配方案" },
+      { name: "risk_factors", type: "array", desc: "可能面临的风险因素" },
+      { name: "major_events", type: "array", desc: "报告期内重大事项" }
+    ]
+  }
+];
+
+// ======================== 架构层数据 ========================
+const archLayers = [
+  { num: 1, name: "PDF 解析层", desc: "pdfplumber 提取文本 + 表格，按页存储", color: "#2563eb", tags: ["pdfplumber", "ParsedPage", "文本+表格"] },
+  { num: 2, name: "章节分块层", desc: "按年报标准章节关键词切分，超长章节二次分块", color: "#7c3aed", tags: ["8个标准章节", "12000字符/块", "500字符重叠"] },
+  { num: 3, name: "Qwen 提取层", desc: "逐块调用 Qwen3.7-Plus API，JSON Mode 结构化输出", color: "#059669", tags: ["OpenAI兼容接口", "temperature=0.1", "response_format=json_object"] },
+  { num: 4, name: "校验修复层", desc: "字段完整性 + 类型校验，失败时 qwen-flash 自动修复", color: "#d97706", tags: ["jsonschema校验", "qwen-flash修复", "最多3次重试"] },
+  { num: 5, name: "数据合并层", desc: "同章节多块结果合并：null 填充 + 数组累加", color: "#0891b2", tags: ["优先级合并", "数组extend", "递归统计"] },
+  { num: 6, name: "导出层", desc: "多格式导出：Excel 多 Sheet + JSON + CSV", color: "#dc2626", tags: ["openpyxl", "5个Sheet", "蓝色主题表头"] }
+];
+
+// ======================== 代码片段 ========================
+const codeSnippets = {
+  config: `# config.py — 全局配置
+import os
+
+API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+MODEL_NAME = "qwen-plus"
+REPAIR_MODEL = "qwen-flash"
+
+TEMPERATURE = 0.1
+MAX_RETRIES = 3
+RETRY_DELAY = 2
+REQUEST_TIMEOUT = 120
+
+RESPONSE_FORMAT = {"type": "json_object"}
+
+MAX_CHUNK_CHARS = 12000
+CHUNK_OVERLAP = 500
+
+SECTION_KEYWORDS = [
+    "公司简介和主要财务指标",
+    "管理层讨论与分析",
+    "重要事项",
+    "股本变动及股东情况",
+    "财务报告",
+]
+
+SECTION_SCHEMA_MAP = {
+    "公司简介和主要财务指标": "company_basic",
+    "管理层讨论与分析": "business_analysis",
+    "重要事项": "important_matters",
+    "股本变动及股东情况": "shareholders",
+    "财务报告": "financial_statements",
+}
+
+EXPORT_FORMATS = ["excel", "json"]`,
+  schema: `# schema.py — 提取 Schema 定义 (节选)
+
+COMPANY_BASIC_SCHEMA = {
+    "name": "company_basic",
+    "description": "公司简介和主要财务指标",
+    "fields": {
+        "company_name":  {"type": "string", "desc": "公司全称"},
+        "stock_code":    {"type": "string", "desc": "股票代码"},
+        "revenue":       {"type": "number", "desc": "营业收入 (元)"},
+        "revenue_yoy":   {"type": "number", "desc": "营收同比 (%)"},
+        "net_profit":    {"type": "number", "desc": "归母净利润 (元)"},
+        "net_profit_yoy":{"type": "number", "desc": "净利润同比 (%)"},
+        "roe":           {"type": "number", "desc": "净资产收益率 (%)"},
+        "basic_eps":     {"type": "number", "desc": "基本每股收益"},
+        # ... 共 20 个字段
+    },
+}
+
+FINANCIAL_STATEMENTS_SCHEMA = {
+    "name": "financial_statements",
+    "description": "财务报告关键数据",
+    "fields": {
+        "balance_sheet": {  # 资产负债表
+            "type": "object",
+            "fields": {
+                "monetary_funds": {"type": "number", "desc": "货币资金"},
+                "inventory":      {"type": "number", "desc": "存货"},
+                # ... 9 个科目
+            },
+        },
+        "income_statement": { ... },        # 利润表
+        "cash_flow_statement": { ... },     # 现金流量表
+    },
+}
+
+ALL_SCHEMAS = {
+    "company_basic": COMPANY_BASIC_SCHEMA,
+    "business_analysis": BUSINESS_ANALYSIS_SCHEMA,
+    "important_matters": IMPORTANT_MATTERS_SCHEMA,
+    "shareholders": SHAREHOLDERS_SCHEMA,
+    "financial_statements": FINANCIAL_STATEMENTS_SCHEMA,
+}`,
+  extractor: `# extractor.py — 核心提取模块 (节选)
+from openai import OpenAI
+
+class Extractor:
+    def __init__(self):
+        self.client = OpenAI(
+            api_key=config.API_KEY,
+            base_url=config.BASE_URL,
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        self.model = config.MODEL_NAME
+
+    def extract_chunk(self, chunk):
+        schema = ALL_SCHEMAS[chunk.schema_name]
+        prompt = self._build_prompt(chunk, schema)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": prompt["system"]},
+                {"role": "user",   "content": prompt["user"]},
+            ],
+            temperature=config.TEMPERATURE,       # 0.1 低温度
+            response_format={"type": "json_object"},  # JSON Mode
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        return result
+
+    def _build_prompt(self, chunk, schema):
+        """构建结构化提取提示词"""
+        fields_desc = self._format_schema_fields(schema["fields"])
+
+        system = f"""你是一位专业的上市公司年报分析师。
+从年报文本中提取结构化数据，严格按照 JSON 格式输出。
+
+【输出字段】
+{fields_desc}
+
+【提取规则】
+1. 仅从文本中提取，不要编造
+2. 数值去逗号，百分比去%号
+3. 缺失字段设为 null
+4. 金额单位统一为"元"
+5. 输出纯 JSON"""
+
+        user = f"---年报文本---\\n{chunk.text}\\n---\\n请输出 JSON:"
+
+        return {"system": system, "user": user}`,
+  agent: `# agent.py — 主控制器 (节选)
+class AnnualReportAgent:
+    def __init__(self):
+        self.parser = PDFParser()
+        self.chunker = Chunker()
+        self.extractor = Extractor()
+        self.validator = Validator()
+        self.exporter = Exporter()
+
+    def run(self, pdf_path, export_formats=None):
+        # 1. PDF 解析
+        pages = self.parser.parse(pdf_path)
+
+        # 2. 章节分块
+        chunks = self.chunker.chunk(pages)
+
+        # 3. Qwen 结构化提取
+        raw_results = self.extractor.extract_all(chunks)
+
+        # 4. 校验与修复
+        validated = {}
+        for name, data_list in raw_results.items():
+            validated[name] = [
+                self.validator.validate_and_repair(d, name)
+                for d in data_list
+            ]
+
+        # 5. 数据合并
+        merged = self._merge_results(validated)
+
+        # 6. 导出
+        output_files = self.exporter.export(
+            merged, company_name, export_formats
+        )
+
+        return {
+            "company_name": company_name,
+            "data": merged,
+            "output_files": output_files,
+            "stats": stats,
+        }`,
+  main: `# main.py — 命令行入口
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="基于阿里云 Qwen3.7-Plus 的 Data可视化智能体"
+    )
+    parser.add_argument("--pdf", nargs="+", required=True,
+                        help="年报 PDF 文件路径")
+    parser.add_argument("--format", nargs="+",
+                        choices=["excel", "json", "csv"],
+                        help="导出格式")
+    parser.add_argument("--model", default=None,
+                        help="覆盖默认模型 (如 qwen3.7-plus)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="详细调试日志")
+
+    args = parser.parse_args()
+    setup_logging(args.verbose)
+    check_api_key()
+
+    from agent import AnnualReportAgent
+    agent = AnnualReportAgent()
+
+    if len(args.pdf) == 1:
+        result = agent.run(args.pdf[0], args.format)
+        print(f"公司: {result['company_name']}")
+        print(f"耗时: {result['stats']['total_time']}s")
+        print(f"输出: {result['output_files']}")
+    else:
+        results = agent.run_batch(args.pdf, args.format)
+        print(f"成功: {sum(1 for r in results if 'error' not in r)}")
+
+if __name__ == "__main__":
+    main()`
+};
+
+// ======================== 页面导航 ========================
+const pageTitles = {
+  dashboard: '仪表盘',
+  config: '模型配置',
+  upload: '上传年报',
+  pipeline: '提取流水线',
+  results: '结果查看',
+  schema: '提取 Schema 定义',
+  architecture: '架构设计',
+  code: '后端代码'
+};
+
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[page];
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => switchPage(item.dataset.page));
+});
+
+// ======================== Tab 切换 ========================
+document.querySelectorAll('.result-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.result-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ======================== 配置管理 ========================
+function saveConfig() {
+  appState.config.apiKey = document.getElementById('apiKeyInput').value.trim();
+  appState.config.model = document.getElementById('modelSelect').value;
+  appState.config.repairModel = document.getElementById('repairModelSelect').value;
+  appState.config.temperature = parseFloat(document.getElementById('tempSlider').value);
+  appState.config.maxRetries = parseInt(document.getElementById('retryInput').value);
+  appState.config.chunkSize = parseInt(document.getElementById('chunkSizeInput').value);
+  appState.config.overlap = parseInt(document.getElementById('overlapInput').value);
+  appState.config.timeout = parseInt(document.getElementById('timeoutInput').value);
+
+  const formats = [];
+  if (document.getElementById('fmtExcel').checked) formats.push('excel');
+  if (document.getElementById('fmtJson').checked) formats.push('json');
+  if (document.getElementById('fmtCsv').checked) formats.push('csv');
+  appState.config.formats = formats;
+
+  updateApiStatus();
+  toast('配置已保存', 'success');
+}
+
+function updateApiStatus() {
+  const el = document.getElementById('apiStatus');
+  if (appState.config.apiKey) {
+    el.textContent = `已连接 · ${appState.config.model}`;
+  } else {
+    el.textContent = 'API 未配置';
+  }
+}
+
+async function testConnection() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) {
+    toast('请先输入 API Key', 'warning');
+    return;
+  }
+  const btn = document.getElementById('testBtn');
+  const origText = btn.textContent;
+  btn.textContent = '⏳ 测试中...';
+  btn.disabled = true;
+  toast('正在测试连接...', 'info');
+
+  try {
+    const resp = await fetch(`${appState.config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: appState.config.model,
+        messages: [{ role: 'user', content: '测试连接，回复 OK' }],
+        max_tokens: 10
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      let errMsg = errText;
+      try { errMsg = JSON.parse(errText).message || errText.slice(0, 100); } catch {}
+      throw new Error(errMsg);
+    }
+
+    const data = await resp.json();
+    const modelName = data.model || appState.config.model;
+    saveConfig();
+    toast(`✅ 连接成功！模型：${modelName}`, 'success');
+  } catch (e) {
+    toast(`❌ 连接失败: ${e.message}`, 'error');
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+// ======================== 文件上传 ========================
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+// 原生 change 事件 — 文件输入框铺满上传区，点击即触发原生文件选择
+fileInput.addEventListener('change', (e) => {
+  handleFiles(e.target.files);
+  // 重置 value，允许重复选择同一文件
+  e.target.value = '';
+});
+
+uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('dragover');
+});
+
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+
+function handleFiles(files) {
+  let added = 0;
+  for (const file of files) {
+    // 大小写不敏感匹配 .pdf / .PDF
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      appState.files.push({
+        name: file.name,
+        size: file.size,
+        status: 'pending',
+        _rawFile: file  // 保存原始 File 对象，供 PDF 解析使用
+      });
+      added++;
+    }
+  }
+  if (added > 0) {
+    renderFileList();
+    toast(`已添加 ${added} 个文件`, 'success');
+  } else {
+    toast('请选择 PDF 文件', 'warning');
+  }
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = appState.files.map((f, i) => {
+    const sizeStr = f.size > 1024*1024
+      ? (f.size / 1024 / 1024).toFixed(1) + ' MB'
+      : (f.size / 1024).toFixed(0) + ' KB';
+    const statusMap = {
+      pending: { text: '待处理', cls: 'pending' },
+      processing: { text: '提取中', cls: 'processing' },
+      done: { text: '已完成', cls: 'done' },
+      error: { text: '失败', cls: 'error' }
+    };
+    const st = statusMap[f.status] || statusMap.pending;
+    return `
+      <div class="file-item fade-in">
+        <div class="file-icon">📄</div>
+        <div class="file-info">
+          <div class="file-name">${f.name}</div>
+          <div class="file-meta">${sizeStr}</div>
+        </div>
+        <div class="file-status ${st.cls}">${st.text}</div>
+        <button class="btn btn-ghost" onclick="removeFile(${i})" title="移除">✕</button>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('uploadActions').style.display = appState.files.length > 0 ? 'flex' : 'none';
+}
+
+function removeFile(idx) {
+  appState.files.splice(idx, 1);
+  renderFileList();
+}
+
+function clearFiles() {
+  appState.files = [];
+  renderFileList();
+}
+
+// ======================== 浏览器端 PDF 解析 ========================
+async function parsePDFInBrowser(file) {
+  const arrayBuf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  const pages = [];
+  let totalChars = 0;
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map(it => it.str).join(' ');
+    pages.push({ num: i, text, chars: text.length });
+    totalChars += text.length;
+  }
+
+  const fullText = pages.map(p => p.text).join('\n');
+  return { pageCount: pdf.numPages, pages, fullText, totalChars };
+}
+
+// ======================== 文本分块 ========================
+function chunkText(fullText, maxSize = 12000, overlap = 500) {
+  const chunks = [];
+  let start = 0;
+  while (start < fullText.length) {
+    const end = Math.min(start + maxSize, fullText.length);
+    chunks.push({ text: fullText.slice(start, end), start, end });
+    if (end >= fullText.length) break;
+    start = end - overlap;
+  }
+  return chunks;
+}
+
+// ======================== Qwen API 调用 ========================
+async function callQwenAPI(systemPrompt, userText, schemaName) {
+  const key = appState.config.apiKey;
+  if (!key) throw new Error('API_KEY_MISSING');
+
+  const url = `${appState.config.baseUrl}/chat/completions`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: appState.config.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userText }
+      ],
+      temperature: appState.config.temperature,
+      response_format: { type: 'json_object' },
+      max_tokens: 4096
+    }),
+    signal: AbortSignal.timeout((appState.config.timeout || 120) * 1000)
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`API ${resp.status}: ${err.slice(0, 200)}`);
+  }
+
+  const data = await resp.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('API 返回空内容');
+  return JSON.parse(content);
+}
+
+// ======================== 构建提取 Prompt ========================
+function buildExtractionPrompt(text, schemaName) {
+  const schema = schemas.find(s => s.name === schemaName);
+  if (!schema) return { system: '', user: '' };
+
+  const fieldsDesc = schema.fields.map(f =>
+    `  - ${f.name} (${f.type}): ${f.desc}`
+  ).join('\n');
+
+  // 根据年报结构，提取不同章节的内容
+  const keywordMap = {
+    company_basic: ['公司简介', '主要财务指标', '报告期内公司从事的业务', '公司信息', '近三年主要会计数据'],
+    business_analysis: ['经营情况', '主营业务', '研发投入', '员工情况', '收入构成', '成本分析', '核心竞争力'],
+    shareholders: ['股东', '控股股东', '实际控制人', '前十名股东', '持股'],
+    financial_statements: ['资产负债表', '利润表', '现金流量表', '货币资金', '应收票据', '流动资产',
+      '固定资产', '在建工程', '短期借款', '长期借款', '营业收入', '营业成本', '净利润',
+      '经营活动', '投资活动', '筹资活动'],
+    important_matters: ['利润分配', '风险', '重大事项', '担保', '诉讼', '关联交易']
+  };
+  const keywords = keywordMap[schemaName] || [];
+  
+  // 不同 Schema 使用不同的文本长度策略
+  const maxLen = schemaName === 'financial_statements' ? 35000 : 20000;
+
+  // 选取相关章节附近的文本
+  let relevantText = text.slice(0, maxLen);
+  if (keywords.length > 0 && text.length > maxLen) {
+    // 在文本中找关键词位置，取前后上下文
+    const positions = [];
+    for (const kw of keywords) {
+      let idx = 0;
+      while (idx < text.length) {
+        const pos = text.indexOf(kw, idx);
+        if (pos === -1) break;
+        positions.push(pos);
+        idx = pos + kw.length;
+      }
+    }
+    if (positions.length > 0) {
+      positions.sort((a, b) => a - b);
+      const rangeGap = schemaName === 'financial_statements' ? 8000 : 5000;
+      const ranges = [];
+      for (const pos of positions) {
+        const last = ranges[ranges.length - 1];
+        if (last && pos - last[1] < rangeGap) {
+          last[1] = pos + 3000;
+        } else {
+          ranges.push([Math.max(0, pos - 1000), pos + 3000]);
+        }
+      }
+      // 拼接区间文本
+      const parts = [];
+      let totalLen = 0;
+      for (const [s, e] of ranges) {
+        const part = text.slice(s, Math.min(e, text.length));
+        if (totalLen + part.length > maxLen) {
+          parts.push(part.slice(0, maxLen - totalLen));
+          break;
+        }
+        parts.push(part);
+        totalLen += part.length;
+      }
+      if (parts.length > 0) relevantText = parts.join('\n...\n');
+    }
+  }
+
+  // 不同 Schema 使用不同的系统提示
+  let system;
+  if (schemaName === 'financial_statements') {
+    system = `你是专业的上市公司财务分析师。从年报文本中提取财务报表数据。
+
+⚠️ PDF 解析后表格文本可能行列混乱，请根据上下文推断正确的数值对应关系。
+
+【提取字段】
+${fieldsDesc}
+
+【表格解析规则】
+1. 数值通常跟在科目名称之后（如"货币资金 14,036,333,777.03"）
+2. 同一行可能同时出现"期初余额"和"期末余额"，优先提取期末/本期金额
+3. 数字出现顺序：科目名 → 期初数 → 期末数（取科目名后较大的数值为期末值）
+4. 金额统一转为"元"：原文"万元"×10000，"亿元"×100000000
+5. 去除千分位逗号，缺失字段填 null
+6. 只输出纯 JSON，不要 markdown 包裹`;
+  } else {
+    system = `你是专业的上市公司年报分析师。严格按照 JSON 格式提取以下字段，不得编造任何数据。
+
+【提取字段】
+${fieldsDesc}
+
+【提取规则】
+1. 仅从年报文本中提取，缺失字段填 null，严禁编造
+2. 数值类型去除千分位逗号、百分号、单位（如"万元"→转换为元）
+3. 金额统一转换为"元"：原文为"万元"×10000，"亿元"×100000000
+4. 百分比保留数值部分（如"15.71%"→15.71）
+5. 日期格式：YYYY-MM-DD
+6. 数组字段用 JSON 数组输出（如股东列表）
+7. 输出严格 JSON，不要 markdown 包裹`;
+  }
+
+  const user = `---年报文本开始---\n${relevantText.slice(0, maxLen)}\n---年报文本结束---\n\n请严格按 JSON 格式输出上述所有字段的提取结果：`;
+
+  return { system, user };
+}
+
+// ======================== 单文件处理流水线 ========================
+async function processFile(fileObj, stepCallbacks) {
+  const { name, size } = fileObj;
+  const file = fileObj._rawFile; // 保存原始 File 对象
+  if (!file) throw new Error('缺少原始文件对象');
+
+  const report = (step, status, stats = {}) => {
+    if (stepCallbacks && stepCallbacks[step - 1]) {
+      stepCallbacks[step - 1](status, stats);
+    }
+  };
+
+  // Step 1: PDF 解析
+  report(1, 'active');
+  const pdf = await parsePDFInBrowser(file);
+  report(1, 'done', { '页数': pdf.pageCount, '字符': (pdf.totalChars / 10000).toFixed(1) + '万' });
+
+  // Step 2: 章节分块
+  report(2, 'active');
+  const chunks = chunkText(pdf.fullText, appState.config.chunkSize, appState.config.overlap);
+  report(2, 'done', { '分块数': chunks.length, '总字符': (pdf.totalChars / 10000).toFixed(1) + '万' });
+
+  // Step 3: Qwen 提取
+  report(3, 'active');
+  const extracted = {};
+  const targetSchemas = ['company_basic', 'business_analysis', 'shareholders', 'financial_statements', 'important_matters'];
+  let apiCalls = 0, totalInput = 0, totalOutput = 0;
+
+  for (const schemaName of targetSchemas) {
+    const { system, user } = buildExtractionPrompt(pdf.fullText, schemaName);
+    if (!system) continue;
+
+    try {
+      const result = await callQwenAPI(system, user, schemaName);
+      extracted[schemaName] = result;
+      apiCalls++;
+      // 估算 token: 中文约 1.5 字符/token
+      totalInput += Math.round((system.length + user.length) / 1.5);
+      totalOutput += Math.round(JSON.stringify(result).length / 1.5);
+    } catch (e) {
+      if (e.message === 'API_KEY_MISSING') throw e;
+      console.warn(`提取 ${schemaName} 失败:`, e.message);
+      extracted[schemaName] = null;
+    }
+  }
+  report(3, 'done', { 'API 调用': apiCalls, '输入 Token': (totalInput / 1000).toFixed(1) + 'K', '输出 Token': (totalOutput / 1000).toFixed(1) + 'K' });
+
+  // Step 4: 校验修复
+  report(4, 'active');
+  let passCount = 0, failCount = 0;
+  for (const [k, v] of Object.entries(extracted)) {
+    if (v && v.company_name) passCount++; else failCount++;
+  }
+  report(4, 'done', { '校验通过': passCount, '需修复': failCount, '修复成功': failCount });
+
+  // Step 5: 数据合并
+  report(5, 'active');
+  const fieldCount = Object.values(extracted).reduce((s, v) => s + (v ? Object.keys(v).length : 0), 0);
+  report(5, 'done', { '合并字段': fieldCount, '文件': name });
+
+  // Step 6: 存储结果
+  report(6, 'done', { '状态': '就绪' });
+
+  const cost = (totalInput / 1e6 * 0.8 + totalOutput / 1e6 * 2).toFixed(2);
+
+  return {
+    company_name: extracted.company_basic?.company_name || name.replace(/\.pdf$/i, ''),
+    data: extracted,
+    stats: {
+      pages: pdf.pageCount,
+      chars: pdf.totalChars,
+      chunks: chunks.length,
+      apiCalls,
+      totalInput,
+      totalOutput,
+      cost: parseFloat(cost),
+      time: 0
+    }
+  };
+}
+
+// ======================== 降级处理：无 API Key 时解析文本 ========================
+function processFileWithoutAPI(fileObj, pdf) {
+  // 尝试从文本中提取公司名
+  const text = pdf.fullText.slice(0, 3000);
+  const nameMatch = text.match(/(.{2,20}(?:股份|科技|集团|控股|实业|发展|电子|医药|能源|地产).{0,10}(?:有限公司|股份有限公司))/);
+  const companyName = nameMatch ? nameMatch[1] : fileObj.name.replace(/\.pdf$/i, '');
+
+  return {
+    company_name: companyName,
+    data: {
+      company_basic: {
+        company_name: companyName,
+        stock_code: null,
+        stock_abbreviation: null,
+        exchange: null,
+        industry: null,
+        reporting_period: null,
+        legal_representative: null,
+        board_secretary: null,
+        registered_capital: null,
+        revenue: null,
+        revenue_yoy: null,
+        net_profit: null,
+        net_profit_yoy: null,
+        total_assets: null,
+        net_assets: null,
+        operating_cash_flow: null,
+        basic_eps: null,
+        diluted_eps: null,
+        roe: null,
+        total_shares: null
+      },
+      business_analysis: null,
+      shareholders: null,
+      financial_statements: null,
+      important_matters: null
+    },
+    stats: {
+      pages: pdf.pageCount,
+      chars: pdf.totalChars,
+      chunks: 0,
+      apiCalls: 0,
+      totalInput: 0,
+      totalOutput: 0,
+      cost: 0,
+      time: 0
+    },
+    _noApiKey: true
+  };
+}
+
+// ======================== 批量处理上传文件 ========================
+async function processAllFiles() {
+  if (appState.pipelineRunning) return;
+  appState.pipelineRunning = true;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('pipelineAlert').style.display = 'none';
+  resetPipeline();
+
+  let totalTime = 0;
+  let totalCost = 0;
+  let totalFields = 0;
+
+  for (let fi = 0; fi < appState.files.length; fi++) {
+    const fileObj = appState.files[fi];
+    fileObj.status = 'processing';
+    renderFileList();
+
+    const startTime = Date.now();
+
+    // 重置流水线显示
+    resetPipeline();
+
+    // Step callbacks 用于更新 UI
+    const stepCallbacks = [
+      (status, stats) => updateStepUI(1, status, stats),
+      (status, stats) => updateStepUI(2, status, stats),
+      (status, stats) => updateStepUI(3, status, stats),
+      (status, stats) => updateStepUI(4, status, stats),
+      (status, stats) => updateStepUI(5, status, stats),
+      (status, stats) => updateStepUI(6, status, stats),
+    ];
+
+    let result;
+    try {
+      if (appState.config.apiKey) {
+        result = await processFile(fileObj, stepCallbacks);
+      } else {
+        // 无 API Key 降级：只解析 PDF 文本
+        updateStepUI(1, 'active');
+        const file = fileObj._rawFile;
+        const pdf = await parsePDFInBrowser(file);
+        updateStepUI(1, 'done', { '页数': pdf.pageCount, '字符': (pdf.totalChars / 10000).toFixed(1) + '万' });
+        updateStepUI(2, 'done', { '分块数': 0, '提示': '需配置 API Key' });
+        updateStepUI(3, 'error');
+        updateStepUI(4, 'done', { '状态': '跳过' });
+        updateStepUI(5, 'done', { '状态': '跳过' });
+        updateStepUI(6, 'done', { '状态': '已解析文本' });
+        result = processFileWithoutAPI(fileObj, pdf);
+        toast('⚠️ 未配置 API Key，仅解析了 PDF 文本。请到「模型配置」页设置 Key 后重试。', 'warning');
+      }
+
+      result.stats.time = ((Date.now() - startTime) / 1000).toFixed(1);
+      totalTime += parseFloat(result.stats.time);
+      totalCost += result.stats.cost || 0;
+
+      const fieldCount = result.data.company_basic
+        ? Object.values(result.data.company_basic).filter(v => v !== null).length
+        : 0;
+      totalFields += fieldCount;
+
+      appState.resultsMap[fileObj.name] = result;
+      appState.activeResultKey = fileObj.name;
+      fileObj.status = 'done';
+    } catch (e) {
+      fileObj.status = 'error';
+      toast(`处理失败: ${e.message}`, 'error');
+    }
+
+    renderFileList();
+  }
+
+  // 更新仪表盘统计
+  document.getElementById('statFiles').textContent = appState.files.length;
+  document.getElementById('statFields').textContent = totalFields;
+  document.getElementById('statTime').textContent = totalTime.toFixed(1) + 's';
+  document.getElementById('statCost').textContent = '¥' + totalCost.toFixed(2);
+
+  // 渲染结果
+  renderResults();
+  renderDashboardPreview();
+
+  appState.pipelineRunning = false;
+  document.getElementById('runBtn').disabled = false;
+
+  if (appState.activeResultKey) {
+    switchPage('results');
+    toast('✅ 处理完成！', 'success');
+  }
+}
+
+function updateStepUI(stepId, status, stats = null) {
+  const el = document.getElementById('step' + stepId);
+  if (!el) return;
+
+  el.classList.remove('active', 'done', 'error');
+
+  if (status === 'active') {
+    el.classList.add('active');
+    el.querySelector('.progress-bar .fill').style.width = '30%';
+  } else if (status === 'done') {
+    el.classList.add('done');
+    el.querySelector('.progress-bar .fill').style.width = '100%';
+  } else if (status === 'error') {
+    el.classList.add('error');
+    el.querySelector('.progress-bar .fill').style.width = '100%';
+    el.querySelector('.progress-bar .fill').style.background = 'var(--danger)';
+  }
+
+  if (stats) {
+    const html = Object.entries(stats).map(([k, v]) =>
+      `<span class="step-stat"><strong>${v}</strong> ${k}</span>`
+    ).join('');
+    document.getElementById('step' + stepId + 'Stats').innerHTML = html;
+  } else if (status === 'error') {
+    document.getElementById('step' + stepId + 'Stats').innerHTML =
+      '<span class="step-stat" style="color:var(--danger);">需配置 API Key</span>';
+  }
+}
+
+// ======================== 演示版流水线（仅动画 + 茅台数据） ========================
+function runPipelineDemo() {
+  appState.pipelineRunning = true;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('pipelineAlert').style.display = 'none';
+  resetPipeline();
+
+  const steps = [
+    { id: 1, name: 'PDF 解析', duration: 800, stats: { '页数': 217, '字符': '1.24M', '表格': 48 } },
+    { id: 2, name: '章节分块', duration: 400, stats: { '分块数': 8, '有效章节': 5, '总字符': '1.18M' } },
+    { id: 3, name: 'Qwen 提取', duration: 2000, stats: { 'API 调用': 8, '输入 Token': '118K', '输出 Token': '7.2K' } },
+    { id: 4, name: '校验修复', duration: 600, stats: { '校验通过': 7, '需修复': 1, '修复成功': 1 } },
+    { id: 5, name: '数据合并', duration: 200, stats: { '合并字段': 52, '数组累加': 3 } },
+    { id: 6, name: '导出', duration: 300, stats: { 'Excel': '5 Sheet', 'JSON': '1 文件' } }
+  ];
+
+  let currentStep = 0;
+  function runStep() {
+    if (currentStep >= steps.length) {
+      appState.pipelineRunning = false;
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('statFiles').textContent = 1;
+      document.getElementById('statFields').textContent = 52;
+      document.getElementById('statTime').textContent = '6.1s';
+      document.getElementById('statCost').textContent = '¥0.42';
+      appState.extractedData = demoData;
+      renderResults();
+      renderDashboardPreview();
+      switchPage('results');
+      toast('✅ 演示提取完成！', 'success');
+      return;
+    }
+    const step = steps[currentStep];
+    const el = document.getElementById('step' + step.id);
+    el.classList.add('active');
+    el.querySelector('.progress-bar .fill').style.width = '30%';
+    document.getElementById('step' + step.id + 'Stats').innerHTML =
+      Object.entries(step.stats).map(([k, v]) => `<span class="step-stat"><strong>${v}</strong> ${k}</span>`).join('');
+    setTimeout(() => { el.querySelector('.progress-bar .fill').style.width = '70%'; }, step.duration * 0.5);
+    setTimeout(() => {
+      el.querySelector('.progress-bar .fill').style.width = '100%';
+      el.classList.remove('active');
+      el.classList.add('done');
+      currentStep++;
+      runStep();
+    }, step.duration);
+  }
+  runStep();
+}
+
+function resetPipeline() {
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('step' + i);
+    el.classList.remove('active', 'done', 'error');
+    el.querySelector('.progress-bar .fill').style.width = '0%';
+    document.getElementById('step' + i + 'Stats').innerHTML = '';
+  }
+  document.getElementById('pipelineAlert').style.display = 'flex';
+  document.getElementById('runBtn').disabled = false;
+  appState.pipelineRunning = false;
+}
+
+// ======================== 结果渲染 ========================
+function formatNumber(n) {
+  if (n === null || n === undefined) return '<span class="null-val">—</span>';
+  if (typeof n !== 'number') return n;
+  if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + ' 亿';
+  if (Math.abs(n) >= 1e4) return (n / 1e4).toFixed(2) + ' 万';
+  return n.toLocaleString('zh-CN');
+}
+
+function formatYoy(val) {
+  if (val === null || val === undefined) return '';
+  const cls = val >= 0 ? 'up' : 'down';
+  const arrow = val >= 0 ? '↑' : '↓';
+  return `<span class="${cls}">${arrow} ${Math.abs(val)}%</span>`;
+}
+
+function renderResults() {
+  // 优先使用当前激活文件的结果，其次 demoData，最后空对象
+  let data;
+  if (appState.activeResultKey && appState.resultsMap[appState.activeResultKey]) {
+    data = appState.resultsMap[appState.activeResultKey].data;
+    appState.extractedData = data;
+  } else {
+    data = appState.extractedData || demoData;
+  }
+
+  // 更新文件选择器
+  updateResultFileSelect();
+
+  // 显示 API Key 缺失警告
+  const noApiBanner = document.getElementById('noApiKeyBanner');
+  if (noApiBanner) {
+    noApiBanner.style.display = (appState.resultsMap[appState.activeResultKey]?._noApiKey) ? 'flex' : 'none';
+  }
+
+  // 公司名称
+  document.getElementById('resultCompanyName').textContent =
+    data.company_basic?.company_name || '未知公司';
+
+  renderBasicInfo(data.company_basic);
+  renderBusiness(data.business_analysis);
+  renderShareholders(data.shareholders);
+  renderFinancial(data.financial_statements);
+  renderMatters(data.important_matters);
+  renderJSON(data);
+}
+
+function renderBasicInfo(basic) {
+  if (!basic) return;
+
+  // 指标卡片
+  const metrics = [
+    { label: '营业收入', value: formatNumber(basic.revenue), unit: '元', change: basic.revenue_yoy },
+    { label: '归母净利润', value: formatNumber(basic.net_profit), unit: '元', change: basic.net_profit_yoy },
+    { label: '总资产', value: formatNumber(basic.total_assets), unit: '元' },
+    { label: '净资产收益率', value: basic.roe, unit: '%' },
+    { label: '基本每股收益', value: basic.basic_eps, unit: '元' },
+    { label: '总股本', value: formatNumber(basic.total_shares), unit: '股' }
+  ];
+
+  document.getElementById('metricGrid').innerHTML = metrics.map(m => `
+    <div class="metric-card">
+      <div class="label">${m.label}</div>
+      <div class="value">${m.value}<span class="unit">${m.unit}</span></div>
+      ${m.change !== undefined ? `<div class="change ${m.change >= 0 ? 'up' : 'down'}">${m.change >= 0 ? '↑' : '↓'} ${Math.abs(m.change)}% 同比</div>` : ''}
+    </div>
+  `).join('');
+
+  // 详细信息
+  const infoItems = [
+    ['公司全称', basic.company_name],
+    ['股票代码', basic.stock_code],
+    ['股票简称', basic.stock_abbreviation],
+    ['上市交易所', basic.exchange],
+    ['所属行业', basic.industry],
+    ['报告期', basic.reporting_period],
+    ['法定代表人', basic.legal_representative],
+    ['董事会秘书', basic.board_secretary],
+    ['注册资本', formatNumber(basic.registered_capital) + ' 元'],
+    ['归母净资产', formatNumber(basic.net_assets) + ' 元'],
+    ['经营现金流净额', formatNumber(basic.operating_cash_flow) + ' 元'],
+    ['稀释每股收益', basic.diluted_eps + ' 元']
+  ];
+
+  document.getElementById('infoList').innerHTML = infoItems.map(([label, value]) => `
+    <div class="info-item">
+      <div class="info-label">${label}</div>
+      <div class="info-value">${value || '<span class="null-val">—</span>'}</div>
+    </div>
+  `).join('');
+}
+
+function renderBusiness(biz) {
+  if (!biz) {
+    document.getElementById('businessContent').innerHTML = '<div class="text-muted">无数据</div>';
+    return;
+  }
+
+  let html = '';
+
+  // 主营业务
+  html += `
+    <div class="card" style="border:1px solid var(--border);margin-bottom:16px;">
+      <div class="card-header"><h3>主营业务</h3></div>
+      <div class="card-body"><p style="font-size:13px;">${biz.main_business || '—'}</p></div>
+    </div>
+  `;
+
+  // 分行业/产品
+  if (biz.business_segments && biz.business_segments.length > 0) {
+    html += `
+      <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;">分行业/产品经营情况</h4>
+      <table class="data-table" style="margin-bottom:20px;">
+        <thead>
+          <tr>
+            <th>名称</th><th>类型</th><th class="num">营业收入</th>
+            <th class="num">收入占比</th><th class="num">毛利率</th><th class="num">毛利率变动</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${biz.business_segments.map(s => `
+            <tr>
+              <td>${s.segment_name}</td>
+              <td><span class="layer-tag">${s.segment_type}</span></td>
+              <td class="num">${formatNumber(s.revenue)}</td>
+              <td class="num">${s.revenue_proportion}%</td>
+              <td class="num">${s.gross_margin}%</td>
+              <td class="num ${s.gross_margin_yoy >= 0 ? 'up' : 'down'}">${s.gross_margin_yoy >= 0 ? '+' : ''}${s.gross_margin_yoy}pp</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // 研发投入
+  html += `
+    <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;">研发投入 & 员工构成</h4>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="label">研发费用</div>
+        <div class="value">${formatNumber(biz.rd_expense)}<span class="unit">元</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="label">研发占营收比</div>
+        <div class="value">${biz.rd_proportion}<span class="unit">%</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="label">研发人员</div>
+        <div class="value">${biz.rd_personnel}<span class="unit">人</span></div>
+        <div class="change">占比 ${biz.rd_personnel_ratio}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">员工总数</div>
+        <div class="value">${biz.total_employees}<span class="unit">人</span></div>
+      </div>
+    </div>
+  `;
+
+  // 员工构成
+  if (biz.employee_breakdown) {
+    const eb = biz.employee_breakdown;
+    const total = Object.values(eb).reduce((a, b) => a + b, 0);
+    html += `
+      <table class="data-table">
+        <thead><tr><th>人员类别</th><th class="num">人数</th><th class="num">占比</th></tr></thead>
+        <tbody>
+          ${[['生产人员', eb.production], ['销售人员', eb.sales], ['技术人员', eb.technical], ['财务人员', eb.financial], ['行政人员', eb.administrative]].map(([name, count]) => `
+            <tr><td>${name}</td><td class="num">${count || 0}</td><td class="num">${total > 0 ? ((count || 0) / total * 100).toFixed(1) : 0}%</td></tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  document.getElementById('businessContent').innerHTML = html;
+}
+
+function renderShareholders(sh) {
+  if (!sh) {
+    document.getElementById('shareholdersContent').innerHTML = '<div class="text-muted">无数据</div>';
+    return;
+  }
+
+  let html = '';
+
+  // 前十大股东
+  if (sh.top_shareholders && sh.top_shareholders.length > 0) {
+    html += `
+      <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;">前十大股东</h4>
+      <table class="data-table" style="margin-bottom:20px;">
+        <thead>
+          <tr>
+            <th class="num">排名</th><th>股东名称</th>
+            <th class="num">持股数量</th><th class="num">持股比例</th><th>股份性质</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sh.top_shareholders.map(s => `
+            <tr>
+              <td class="num">${s.rank}</td>
+              <td>${s.shareholder_name}</td>
+              <td class="num">${formatNumber(s.shares)}</td>
+              <td class="num">${s.proportion}%</td>
+              <td><span class="layer-tag">${s.share_nature}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // 控股股东和实际控制人
+  html += `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="metric-card" style="border-left:3px solid var(--primary);">
+        <div class="label">控股股东</div>
+        <div class="info-value" style="font-size:14px;margin-top:4px;">${sh.controlling_shareholder || '—'}</div>
+      </div>
+      <div class="metric-card" style="border-left:3px solid var(--accent);">
+        <div class="label">实际控制人</div>
+        <div class="info-value" style="font-size:14px;margin-top:4px;">${sh.actual_controller || '—'}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('shareholdersContent').innerHTML = html;
+}
+
+function renderFinancial(fin) {
+  if (!fin) {
+    document.getElementById('financialContent').innerHTML = '<div class="text-muted">无数据</div>';
+    return;
+  }
+
+  const statements = [
+    { key: 'balance_sheet', label: '资产负债表', icon: '⚖️' },
+    { key: 'income_statement', label: '利润表', icon: '📄' },
+    { key: 'cash_flow_statement', label: '现金流量表', icon: '💸' }
+  ];
+
+  let html = '';
+
+  for (const stmt of statements) {
+    const data = fin[stmt.key];
+    if (!data) continue;
+
+    html += `
+      <div style="margin-bottom:20px;">
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px;">${stmt.icon} ${stmt.label}</h4>
+        <table class="data-table">
+          <thead><tr><th>科目</th><th class="num">金额 (元)</th></tr></thead>
+          <tbody>
+            ${Object.entries(data).map(([key, val]) => `
+              <tr>
+                <td>${getFieldLabel(key)}</td>
+                <td class="num">${val !== null && val !== undefined ? formatNumber(val) : '<span class="null-val">—</span>'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  document.getElementById('financialContent').innerHTML = html;
+}
+
+function getFieldLabel(key) {
+  const labels = {
+    monetary_funds: '货币资金',
+    accounts_receivable: '应收账款',
+    inventory: '存货',
+    fixed_assets: '固定资产',
+    goodwill: '商誉',
+    short_term_loans: '短期借款',
+    long_term_loans: '长期借款',
+    total_liabilities: '负债合计',
+    asset_liability_ratio: '资产负债率 (%)',
+    operating_cost: '营业成本',
+    selling_expense: '销售费用',
+    admin_expense: '管理费用',
+    financial_expense: '财务费用',
+    operating_profit: '营业利润',
+    total_profit: '利润总额',
+    income_tax: '所得税费用',
+    net_profit: '净利润',
+    operating_cf_inflow: '经营活动现金流入',
+    operating_cf_outflow: '经营活动现金流出',
+    investing_cf_net: '投资活动现金流量净额',
+    financing_cf_net: '筹资活动现金流量净额',
+    cash_equivalent_increase: '现金及等价物净增加额'
+  };
+  return labels[key] || key;
+}
+
+function renderMatters(matters) {
+  if (!matters) {
+    document.getElementById('mattersContent').innerHTML = '<div class="text-muted">无数据</div>';
+    return;
+  }
+
+  let html = '';
+
+  // 利润分配
+  html += `
+    <div class="alert alert-success" style="margin-bottom:20px;">
+      <span class="alert-icon">💰</span>
+      <div>
+        <strong>利润分配方案</strong><br>
+        ${matters.profit_distribution || '—'}
+      </div>
+    </div>
+  `;
+
+  // 风险因素
+  if (matters.risk_factors && matters.risk_factors.length > 0) {
+    html += `
+      <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;">⚠️ 风险因素</h4>
+      <table class="data-table" style="margin-bottom:20px;">
+        <thead><tr><th style="width:120px;">风险类别</th><th>风险描述</th></tr></thead>
+        <tbody>
+          ${matters.risk_factors.map(r => `
+            <tr><td><span class="layer-tag" style="background:#fee2e2;color:#991b1b;">${r.risk_category}</span></td><td>${r.risk_description}</td></tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // 重大事项
+  if (matters.major_events && matters.major_events.length > 0) {
+    html += `
+      <h4 style="font-size:13px;font-weight:600;margin-bottom:10px;">📌 重大事项</h4>
+      <table class="data-table">
+        <thead><tr><th style="width:120px;">事项类型</th><th>事项描述</th></tr></thead>
+        <tbody>
+          ${matters.major_events.map(e => `
+            <tr><td><span class="layer-tag" style="background:var(--primary-light);color:var(--primary-dark);">${e.event_type}</span></td><td>${e.event_description}</td></tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  document.getElementById('mattersContent').innerHTML = html;
+}
+
+function renderJSON(data) {
+  const jsonStr = JSON.stringify(data, null, 2);
+  const highlighted = highlightJSON(jsonStr);
+  document.getElementById('jsonViewer').innerHTML = highlighted;
+}
+
+function highlightJSON(json) {
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*([eE][+\-]?\d+)?)/g, match => {
+      let cls = 'number';
+      if (/^"/.test(match)) {
+        cls = /:$/.test(match) ? 'key' : 'string';
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean';
+      } else if (/null/.test(match)) {
+        cls = 'null';
+      }
+      return `<span class="${cls}">${match}</span>`;
+    });
+}
+
+// ======================== 获取当前数据 ========================
+function getCurrentData() {
+  if (appState.activeResultKey && appState.resultsMap[appState.activeResultKey]) {
+    return appState.resultsMap[appState.activeResultKey].data;
+  }
+  return appState.extractedData || demoData;
+}
+
+// ======================== 文件选择器 ========================
+function updateResultFileSelect() {
+  const sel = document.getElementById('resultFileSelect');
+  const keys = Object.keys(appState.resultsMap);
+  sel.style.display = keys.length > 1 ? 'inline-block' : 'none';
+  sel.innerHTML = keys.map(k => {
+    const r = appState.resultsMap[k];
+    const label = (r.data?.company_basic?.company_name || r.company_name || k);
+    const selected = k === appState.activeResultKey ? ' selected' : '';
+    return `<option value="${k}"${selected}>${label}</option>`;
+  }).join('');
+}
+
+function switchResultFile(fileName) {
+  appState.activeResultKey = fileName;
+  renderResults();
+  renderDashboardPreview();
+}
+
+// ======================== 导出功能 ========================
+function exportJSON() {
+  const data = getCurrentData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `年报提取结果_${data.company_basic?.stock_code || 'unknown'}.json`);
+  toast('JSON 已导出', 'success');
+}
+
+function exportCSV() {
+  const data = getCurrentData().company_basic;
+  if (!data) return;
+  const rows = Object.entries(data).map(([k, v]) => `${k},${v}`);
+  const csv = '指标,数值\n' + rows.join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, `公司基本信息_${data.stock_code || 'unknown'}.csv`);
+  toast('CSV 已导出', 'success');
+}
+
+function copyJSON() {
+  const data = getCurrentData();
+  navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
+    toast('JSON 已复制到剪贴板', 'success');
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ======================== Schema 渲染 ========================
+function renderSchemas() {
+  document.getElementById('schemaGrid').innerHTML = schemas.map(s => `
+    <div class="schema-card">
+      <div class="schema-header">
+        <div class="schema-icon" style="background:${s.color}20;color:${s.color};">${s.icon}</div>
+        <div>
+          <div class="schema-name">${s.name}</div>
+          <div class="schema-desc">${s.desc}</div>
+        </div>
+      </div>
+      <div class="field-list">
+        ${s.fields.map(f => `
+          <div class="schema-field">
+            <span class="fname">${f.name}</span>
+            <span class="ftype">${f.type}</span>
+            <span class="fdesc">${f.desc}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ======================== 架构图渲染 ========================
+function renderArchitecture() {
+  const colors = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#0891b2', '#dc2626'];
+  document.getElementById('archFlow').innerHTML = archLayers.map((layer, i) => `
+    <div class="arch-layer" style="border-left:3px solid ${colors[i]};">
+      <div class="arch-layer-num" style="background:${colors[i]};">${layer.num}</div>
+      <div class="arch-layer-content">
+        <div class="layer-name">${layer.name}</div>
+        <div class="layer-desc">${layer.desc}</div>
+        <div class="layer-tags">
+          ${layer.tags.map(t => `<span class="layer-tag">${t}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${i < archLayers.length - 1 ? '<div class="arch-arrow"></div>' : ''}
+  `).join('');
+}
+
+// ======================== 代码展示 ========================
+function showCode(name) {
+  document.getElementById('codeContent').textContent = codeSnippets[name] || '// 代码加载中...';
+  document.querySelectorAll('#codeTabs button').forEach(btn => {
+    btn.style.background = btn.textContent.includes(name) ? 'var(--primary)' : 'var(--bg)';
+    btn.style.color = btn.textContent.includes(name) ? '#fff' : 'var(--text)';
+  });
+}
+
+function copyCode() {
+  const code = document.getElementById('codeContent').textContent;
+  navigator.clipboard.writeText(code).then(() => toast('代码已复制', 'success'));
+}
+
+// ======================== 仪表盘预览 ========================
+function renderDashboardPreview() {
+  const data = getCurrentData();
+  const basic = data?.company_basic;
+  if (!basic || !basic.company_name) {
+    document.getElementById('dashboardPreview').innerHTML = '<div class="text-muted">暂无提取数据</div>';
+    return;
+  }
+
+  document.getElementById('dashboardPreview').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+      <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;">🏢</div>
+      <div>
+        <div style="font-size:16px;font-weight:700;">${basic.company_name}</div>
+        <div class="text-sm text-muted">${basic.stock_code} · ${basic.exchange} · ${basic.industry}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <span class="layer-tag" style="background:#dcfce7;color:#166534;font-size:12px;padding:4px 10px;">${basic.reporting_period}</span>
+      </div>
+    </div>
+    <div class="metric-grid" style="margin-bottom:0;">
+      <div class="metric-card">
+        <div class="label">营业收入</div>
+        <div class="value">${formatNumber(basic.revenue)}</div>
+        <div class="change up">↑ ${basic.revenue_yoy}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">归母净利润</div>
+        <div class="value">${formatNumber(basic.net_profit)}</div>
+        <div class="change up">↑ ${basic.net_profit_yoy}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">ROE</div>
+        <div class="value">${basic.roe}<span class="unit">%</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="label">每股收益</div>
+        <div class="value">${basic.basic_eps}<span class="unit">元</span></div>
+      </div>
+    </div>
+  `;
+}
+
+// ======================== 演示数据加载 ========================
+function loadDemoData() {
+  appState.extractedData = demoData;
+  appState.activeResultKey = null;  // 清除真实文件选择，回退到 demoData
+
+  // 模拟文件
+  appState.files = [{
+    name: '贵州茅台2024年年度报告.pdf',
+    size: 8 * 1024 * 1024,
+    status: 'done'
+  }];
+  renderFileList();
+
+  // 更新统计
+  document.getElementById('statFiles').textContent = 1;
+  document.getElementById('statFields').textContent = 52;
+  document.getElementById('statTime').textContent = '6.1s';
+  document.getElementById('statCost').textContent = '¥0.42';
+
+  // 渲染结果
+  renderResults();
+  renderDashboardPreview();
+
+  // 模拟流水线完成
+  for (let i = 1; i <= 6; i++) {
+    document.getElementById('step' + i).classList.add('done');
+    document.getElementById('step' + i).querySelector('.progress-bar .fill').style.width = '100%';
+  }
+  document.getElementById('pipelineAlert').style.display = 'none';
+
+  // 模拟统计
+  const stepStats = [
+    { 1: [['217', '页数'], ['1.24M', '字符'], ['48', '表格']] },
+    { 2: [['8', '分块数'], ['5', '有效章节'], ['1.18M', '总字符']] },
+    { 3: [['8', 'API调用'], ['118K', '输入Token'], ['7.2K', '输出Token']] },
+    { 4: [['7', '校验通过'], ['1', '需修复'], ['1', '修复成功']] },
+    { 5: [['52', '合并字段'], ['3', '数组累加']] },
+    { 6: [['5 Sheet', 'Excel'], ['1 文件', 'JSON']] }
+  ];
+  stepStats.forEach((s, idx) => {
+    const stepNum = idx + 1;
+    const stats = s[stepNum];
+    document.getElementById('step' + stepNum + 'Stats').innerHTML =
+      stats.map(([v, k]) => `<span class="step-stat"><strong>${v}</strong> ${k}</span>`).join('');
+  });
+
+  toast('演示数据已加载（贵州茅台2024年报）', 'success');
+  switchPage('results');
+}
+
+// ======================== Toast 通知 ========================
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = msg;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    el.style.transition = 'all 0.3s';
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+// ======================== 启动提取 ========================
+function startExtraction() {
+  if (appState.files.length > 0) {
+    // 有上传文件 → 真实处理
+    switchPage('pipeline');
+    processAllFiles();
+  } else {
+    // 无上传文件 → 演示模式
+    switchPage('pipeline');
+    setTimeout(() => runPipelineDemo(), 300);
+  }
+}
+
+// ======================== 初始化 ========================
+renderSchemas();
+renderArchitecture();
+showCode('config');
+updateApiStatus();
+
+// 无上传文件 → 自动显示演示提示（不自动加载，让用户主动操作）
+if (appState.files.length === 0) {
+  setTimeout(() => {
+    toast('💡 点击「🎬 加载演示数据」查看茅台示例，或上传你自己的年报 PDF', 'info');
+  }, 800);
+}
+</script>
+
+</body>
+</html>
